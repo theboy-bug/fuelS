@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fuel Station Manager</title>
+<style>
+:root{--bg:#f2f3f5;--cd:#fff;--tx:#23262b;--mu:#6b7280;--bd:#d5d8dd;--pr:#dc143c;--ok:#1a7f4b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16181c;--cd:#22262c;--tx:#eceef1;--mu:#9aa1ab;--bd:#383d45}}
+:root[data-theme="dark"]{--bg:#16181c;--cd:#22262c;--tx:#eceef1;--mu:#9aa1ab;--bd:#383d45}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+header{background:var(--pr);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+header span{font-size:13px;display:flex;gap:8px;align-items:center}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:#e4e6ea;background:color-mix(in srgb,var(--bd) 60%,var(--bg))}
+nav button{white-space:nowrap}main{max-width:1000px;margin:auto;padding:14px}
+button{font:inherit;border:1px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:8px;padding:9px 14px;cursor:pointer}
+button.on,button.p{background:var(--pr);color:#fff;border-color:var(--pr);font-weight:600}button.g{background:#fff3;color:#fff;border-color:#fff6}
+button.big{width:100%;padding:26px;font-size:20px;margin-bottom:12px}
+input,select{font:inherit;width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--cd);color:var(--tx)}
+label{display:block;margin:10px 0 4px;color:var(--mu);font-size:13px}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.grid .card{margin:0}
+.k{color:var(--mu);font-size:12px}.v{font-size:22px;font-weight:700}.red{color:var(--pr)}.okc{color:var(--ok)}
+.tabs{display:flex;gap:6px;margin-bottom:10px}.tabs button{flex:1}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+tr:nth-child(even) td{background:color-mix(in srgb,var(--bd) 25%,transparent)}td input{padding:5px;width:84px}
+.gauge{height:18px;border-radius:9px;background:var(--bd);overflow:hidden}.gauge i{display:block;height:100%;background:var(--ok)}.gauge.low i{background:var(--pr)}
+.bars{display:flex;gap:8px;align-items:flex-end;height:110px}.bars div{flex:1;text-align:center;font-size:11px;color:var(--mu)}.bars i{display:block;background:var(--pr);border-radius:4px 4px 0 0;min-height:2px}
+.bd{display:inline-block;padding:1px 8px;border-radius:9px;font-size:12px;background:var(--ok);color:#fff}.bd.r{background:var(--pr)}
+#toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:9}
+.rc{font-family:ui-monospace,monospace;white-space:pre-wrap}.login{max-width:360px;margin:8vh auto;padding:14px}
+@media print{header,nav,button,.np{display:none}}
+</style></head><body><div id="app"></div><div id="toast"></div>
+<script>
+/* ===== SETTINGS & SEED DATA (edit here) ===== */
+const TILL='822985',TANK=3000;
+// brand, product, pack size (L), min price, max price (KSh) - cost is estimated at 80% of min (placeholder, edit in Prices & Stock)
+const OILS=[['TotalEnergies','Quartz 7000 15W-40',1,250,320],['TotalEnergies','Quartz 7000 10W-40',1,270,340],['TotalEnergies','Quartz 9000 5W-40 Synthetic',1,430,520],['TotalEnergies','Quartz 9000 Future NFC 5W-30',1,450,540],['TotalEnergies','Quartz 5000 SN 20W-50 Mineral',4,2200,2500],['TotalEnergies','Quartz 9000 5W-40 Synthetic',4,4000,4000],['TotalEnergies','Quartz 10W-40 ES',5,3000,3000],['TotalEnergies','Quartz 7000 10W-40',5,3000,3000],
+['Shell','Helix HX5 15W-40',1,400,400],['Shell','Helix HX5 15W-40 Premium Multi-Grade',4,2350,2350],['Shell','Helix HX8 5W-40',4,4950,4950],['Shell','Helix Ultra 5W-40 Fully Synthetic',4,4000,4500],['Shell','Rimula R3 Turbo (diesel engine oil)',5,3000,3000],['Shell','Helix Ultra ECT C3 5W-30 Fully Synthetic',5,12200,12200],
+['OLA Energy','Diesel Safari Monograde',1,280,280],['OLA Energy','Flushing Oil',4,1710,2250],['OLA Energy','Accel Fusion Fully Synthetic',4,4290,4290]];
+const seed=async()=>({station:'My Fuel Station',addr:'Khwisero, Kakamega',pumps:1,
+ users:[{u:'admin',name:'Admin',role:'admin',h:await sha('ChangeMe123!'),active:1,must:1},{u:'c',name:'C',role:'attendant',h:await sha('Attend123!'),active:1,must:1}],
+ petrol:{price:0,cost:0,level:0,low:500},pp:[],
+ oils:OILS.map((o,i)=>({id:'o'+i,b:o[0],n:o[1],sz:o[2],min:o[3],max:o[4],price:Math.round((o[3]+o[4])/2),cost:Math.round(o[3]*.8),qty:0,re:3})),
+ sales:[],recs:[],exp:[],log:[]});
+/* ===== STORAGE ADAPTER ===== */
+async function load(){try{return JSON.parse(localStorage.getItem('fuel_v1'))}catch(e){return null}}
+function save(){try{localStorage.setItem('fuel_v1',JSON.stringify(S))}catch(e){}}
+function remote(){}
+/* ===== END ADAPTER ===== */
+let S,me=null,v='home',tab='petrol',last=null,idle,fails={};
+const $=s=>document.querySelector(s),sum=(a,k)=>a.reduce((x,y)=>x+(+y[k]||0),0),fm=n=>'KSh '+Math.round(n).toLocaleString('en-KE'),today=()=>new Date().toISOString().slice(0,10),
+esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&','<':'<','>':'>','"':'"'}[c])),uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join(''),
+live=()=>S.sales.filter(s=>!s.void),val=id=>(document.getElementById(id)||{}).value||'';
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600)}
+function lg(a){S.log.unshift({t:new Date().toISOString(),u:me?me.u:'-',a});S.log.length=Math.min(S.log.length,200)}
+function commit(a){if(a)lg(a);save()}
+function pnl(p){const s=live().filter(x=>x.t.startsWith(p)),rev=sum(s,'amt'),gp=rev-sum(s,'cost'),ex=sum(S.exp.filter(e=>e.d.startsWith(p)),'amt');return{rev,gp,ex,net:gp-ex,s}}
+/* ===== LOGIN ===== */
+function loginV(m){$('#app').innerHTML=`<div class="login card"><h2 class="red">${esc(S.station)}</h2><label>Username</label><input id="lu" autocapitalize="none"><label>Password</label><input id="lp" type="password" onkeydown="event.key=='Enter'&&doLogin()"><p class="red">${m||''}</p><button class="p" style="width:100%" onclick="doLogin()">Log in</button></div>`}
+async function doLogin(){const u=val('lu').trim().toLowerCase(),f=fails[u]||{n:0,t:0};
+ if(f.t>Date.now())return loginV('Account locked for 5 minutes. Try later.');
+ const x=S.users.find(a=>a.u==u&&a.active);
+ if(x&&x.h==await sha(val('lp'))){fails[u]={n:0,t:0};me=x;v=x.role=='admin'?'dash':'home';lg('login');save();x.must?go('pw'):go(v);bump()}
+ else{f.n++;if(f.n>=5){f.t=Date.now()+3e5;f.n=0}fails[u]=f;loginV('Wrong username or password.')}}
+function bump(){clearTimeout(idle);idle=setTimeout(logout,9e5)}
+['click','keydown','touchstart'].forEach(e=>addEventListener(e,()=>me&&bump()));
+function logout(){me=null;clearTimeout(idle);loginV()}
+function pwV(){return `<div class="card"><h3>Set a new password</h3><label>New password (min 8 characters)</label><input id="np" type="password"><button class="p" style="margin-top:10px" onclick="setPw()">Save</button></div>`}
+async function setPw(){const p=val('np');if(p.length<8)return toast('Too short');me.h=await sha(p);me.must=0;commit('password changed');go(me.role=='admin'?'dash':'home')}
+/* ===== LAYOUT ===== */
+function go(k){v=k;const a=me.role=='admin',t=a?[['dash','Dashboard'],['sales','Sales'],['recs','Records'],['stock','Prices & Stock'],['exp','Expenses'],['profit','Profit'],['users','Users']]:[['home','Home'],['sale','New Sale'],['rec','Daily Record']];
+ const V={pw:pwV,dash:vDash,sales:vSales,recs:vRecs,stock:vStock,exp:vExp,profit:vProfit,users:vUsers,home:vHome,sale:vSale,rec:vRec,rcpt:vRcpt}[k];
+ $('#app').innerHTML=`<header><b>${esc(S.station)}</b><span>${esc(me.name)} (${me.role})<button class="g" onclick="logout()">Log out</button></span></header>${k=='pw'?'':`<nav>${t.map(x=>`<button class="${v==x[0]?'on':''}" onclick="go('${x[0]}')">${x[1]}</button>`).join('')}</nav>`}<main>${V()}</main>`;if(k=='sale'&&tab=='oil')fo();scrollTo(0,0)}
+const tbl=(h,r)=>`<div class="tw"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${h.length}">Nothing yet</td></tr>`}</table></div>`;
+const hm=t=>new Date(t).toLocaleString('en-KE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+/* ===== ATTENDANT ===== */
+function mine(){const d=today();return{s:S.sales.filter(x=>x.by==me.u&&x.t.startsWith(d)),r:S.recs.filter(x=>x.by==me.u&&x.date==d)}}
+function vHome(){const m=mine();return `<button class="p big" onclick="go('sale')">New Sale</button><button class="big" onclick="go('rec')">Daily Record</button><div class="card"><h3>My entries today</h3>${tbl(['Time','Item','Qty','Amount','Pay'],m.s.map(x=>[hm(x.t),esc(x.item),x.q,fm(x.amt),x.pay]))}${tbl(['Date','Shift','Meter L','Cash','M-Pesa'],m.r.map(x=>[x.date,x.shift,(x.close-x.open).toFixed(1),fm(x.cash),fm(x.mpesa)]))}<p class="k">Saved entries are locked. Ask the admin to correct a mistake.</p></div>`}
+function vSale(){return `<div class="tabs"><button class="${tab=='petrol'?'on':''}" onclick="tab='petrol';go('sale')">Petrol</button><button class="${tab=='oil'?'on':''}" onclick="tab='oil';go('sale')">Lubricants</button></div><div class="card">${tab=='petrol'?`<div class="k">Price per litre</div><div class="v">${fm(S.petrol.price)}</div><label>Pump</label><select id="pm">${Array.from({length:S.pumps},(_,i)=>`<option>${i+1}</option>`).join('')}</select><label>Litres</label><input id="lt" type="number" step="0.01" min="0" oninput="am.value=(this.value*S.petrol.price).toFixed(0)"><label>Amount (KSh)</label><input id="am" type="number" min="0" oninput="lt.value=(this.value/S.petrol.price||0).toFixed(2)">`:`<label>Search</label><input id="fq" oninput="fo()"><label>Product</label><select id="oi" onchange="op()"></select><label>Quantity</label><input id="q" type="number" min="1" value="1"><label id="ol">Price</label><input id="opr" type="number">`}<label>Payment</label><select id="pay" onchange="px()"><option>Cash</option><option>M-Pesa</option><option>Card</option><option>Credit</option></select><div id="pxd"></div><button class="p" style="width:100%;margin-top:14px" onclick="doSale()">Complete sale</button></div>`}
+function px(){const p=val('pay');$('#pxd').innerHTML=p=='M-Pesa'?`<p class="okc"><b>Pay via M-Pesa Buy Goods, Till ${TILL}</b></p><label>M-Pesa code</label><input id="mc" autocapitalize="characters">`:p=='Credit'?`<label>Customer name</label><input id="cn"><label>Customer phone</label><input id="cp" type="tel">`:''}
+function fo(){const q=val('fq').toLowerCase(),o=$('#oi');if(!o)return;o.innerHTML=S.oils.filter(x=>x.qty>0&&(x.b+x.n+x.sz+'L').toLowerCase().includes(q)).map(x=>`<option value="${x.id}">${esc(x.b)} ${x.sz}L ${esc(x.n)} (${x.qty} in stock)</option>`).join('');op()}
+function op(){const x=S.oils.find(a=>a.id==val('oi'));if(x){opr.value=x.price;ol.textContent=`Price (allowed ${fm(x.min)} to ${fm(x.max)})`}}
+function doSale(){const pay=val('pay'),t=new Date().toISOString();let s;
+ if(tab=='petrol'){let q=Math.round(+val('lt')*100)/100;if(!(S.petrol.price>0))return toast('Admin must set the petrol price first');if(!(q>0))return toast('Enter litres or amount');if(q>S.petrol.level)return toast('Only '+S.petrol.level.toFixed(1)+' L left in tank');
+  s={item:'Petrol pump '+val('pm'),type:'petrol',q,amt:Math.round(q*S.petrol.price),cost:q*S.petrol.cost};S.petrol.level-=q}
+ else{const x=S.oils.find(a=>a.id==val('oi')),q=Math.floor(+val('q')),p=+val('opr');if(!x||!(q>0))return toast('Pick a product and quantity');if(q>x.qty)return toast('Only '+x.qty+' in stock');if(p<x.min||p>x.max)return toast('Price must be between '+x.min+' and '+x.max);
+  s={item:`${x.b} ${x.sz}L ${x.n}`,type:'oil',q,amt:p*q,cost:x.cost*q,oid:x.id};x.qty-=q}
+ let code='',cust='';if(pay=='M-Pesa'){code=val('mc').trim().toUpperCase();if(code.length<8)return toast('Enter the M-Pesa code')}
+ if(pay=='Credit'){cust=val('cn').trim()+' '+val('cp').trim();if(val('cn').trim().length<2||val('cp').trim().length<9)return toast('Customer name and phone needed')}
+ Object.assign(s,{id:uid(),t,by:me.u,pay,code,cust});S.sales.push(s);commit('sale '+s.id);last=s;go('rcpt')}
+function vRcpt(){const s=last,txt=`${S.station}\n${S.addr}\n${hm(s.t)}\nServed by: ${me.name}\n${s.item}\nQty: ${s.q}\nTotal: ${fm(s.amt)}\nPaid: ${s.pay} ${s.code}\nM-Pesa Till: ${TILL}\nThank you!`;
+ return `<div class="card"><div class="rc">${esc(txt)}</div></div><button class="p" onclick="go('sale')">New sale</button> <button onclick="print()">Print</button> <a href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener"><button>Share on WhatsApp</button></a>`}
+function vRec(){return `<div class="card"><h3>Daily record</h3><div class="grid"><div><label>Date</label><input id="rd" type="date" value="${today()}"></div><div><label>Shift</label><select id="rs"><option>Morning</option><option>Evening</option></select></div><div><label>Pump</label><select id="rp">${Array.from({length:S.pumps},(_,i)=>`<option>${i+1}</option>`).join('')}</select></div></div>
+<div class="grid">${[['ro','Opening meter (L)'],['rc','Closing meter (L)'],['rdp','Tank dip reading (L)'],['rca','Cash collected'],['rm','M-Pesa total'],['rcd','Card total'],['rcr','Credit given']].map(f=>`<div><label>${f[1]}</label><input id="${f[0]}" type="number" min="0" step="0.01"></div>`).join('')}</div><label>Remarks</label><input id="rn"><button class="p" style="margin-top:12px;width:100%" onclick="doRec()">Submit record</button></div>`}
+function doRec(){const n=id=>+val(id)||0,r={id:uid(),date:val('rd'),shift:val('rs'),pump:val('rp'),open:n('ro'),close:n('rc'),dip:n('rdp'),cash:n('rca'),mpesa:n('rm'),card:n('rcd'),credit:n('rcr'),note:val('rn'),by:me.u,t:new Date().toISOString()};
+ if(!r.date||r.close<r.open||[r.open,r.close,r.dip,r.cash,r.mpesa,r.card,r.credit].some(x=>x<0))return toast('Check the readings: closing must be at least opening');
+ S.recs.push(r);commit('record '+r.id);toast('Record submitted');go('home')}
+/* ===== ADMIN ===== */
+function vDash(){const d=today(),t=pnl(d),m=pnl(d.slice(0,7)),L=sum(t.s.filter(x=>x.type=='petrol'),'q'),O=sum(t.s.filter(x=>x.type=='oil'),'q'),pc=S.petrol.level/TANK*100,low=pc<=S.petrol.low/TANK*100;
+ const pays=['Cash','M-Pesa','Card','Credit'].map(p=>`${p}: <b>${fm(sum(t.s.filter(x=>x.pay==p),'amt'))}</b>`).join(' &middot; ');
+ const days=[...Array(7)].map((_,i)=>{const x=new Date(Date.now()-(6-i)*864e5).toISOString().slice(0,10);return[x.slice(5),sum(live().filter(s=>s.t.startsWith(x)),'amt')]}),mx=Math.max(1,...days.map(x=>x[1]));
+ const lo=S.oils.filter(x=>x.qty<=x.re),nr=S.recs.filter(r=>!r.ok).length;
+ return `<div class="grid"><div class="card"><div class="k">Sales today</div><div class="v">${fm(t.rev)}</div></div><div class="card"><div class="k">Petrol sold (L)</div><div class="v">${L.toFixed(1)}</div></div><div class="card"><div class="k">Oil units sold</div><div class="v">${O}</div></div><div class="card"><div class="k">Net profit today</div><div class="v ${t.net<0?'red':'okc'}">${fm(t.net)}</div></div><div class="card"><div class="k">Net profit this month</div><div class="v ${m.net<0?'red':'okc'}">${fm(m.net)}</div></div></div>
+<div class="card" style="margin-top:12px"><b>Tank: ${S.petrol.level.toFixed(0)} / ${TANK} L</b> ${low?'<span class="bd r">LOW</span>':''}<div class="gauge ${low?'low':''}"><i style="width:${Math.max(0,pc)}%"></i></div></div>
+<div class="card">${pays}</div><div class="card"><b>Last 7 days</b><div class="bars">${days.map(x=>`<div><i style="height:${x[1]/mx*85}px"></i>${x[0]}</div>`).join('')}</div></div>
+<div class="card"><b>Low stock oils</b>: ${lo.length?lo.map(x=>`<span class="bd r">${esc(x.n)} ${x.sz}L (${x.qty})</span>`).join(' '):'none'}<br><b>Records awaiting review</b>: ${nr}</div>`}
+function vSales(){return `<div class="card"><h3>Latest sales</h3>${tbl(['Time','By','Item','Qty','Amount','Pay','Void'],S.sales.slice(-100).reverse().map(x=>[hm(x.t),x.by,esc(x.item),x.q,fm(x.amt),x.pay+' '+esc(x.code),x.void?`<span class="bd r">void: ${esc(x.void)}</span>`:`<input id="vr${x.id}" placeholder="reason" style="width:110px"><button onclick="voidS('${x.id}')">Void</button>`]))}</div>`}
+function voidS(id){const r=val('vr'+id).trim(),s=S.sales.find(x=>x.id==id);if(r.length<3)return toast('Give a reason');s.void=r;if(s.type=='petrol')S.petrol.level=Math.min(TANK,S.petrol.level+s.q);else{const o=S.oils.find(x=>x.id==s.oid);if(o)o.qty+=s.q}commit('void '+id);go('sales')}
+function vRecs(){return `<div class="card"><h3>Attendant daily records</h3>${tbl(['Date','By','Shift','Meter L','Sold L','L diff','Declared','Sales','Diff','Dip','Action'],S.recs.slice().reverse().slice(0,60).map(r=>{const ss=live().filter(s=>s.by==r.by&&s.t.startsWith(r.date)),sl=sum(ss.filter(s=>s.type=='petrol'),'q'),ml=r.close-r.open,dc=r.cash+r.mpesa+r.card+r.credit,st=sum(ss,'amt'),ld=ml-sl,cd=dc-st,bad=x=>Math.abs(x)>1?'red':'okc';
+ return[r.date,r.by,r.shift,ml.toFixed(1),sl.toFixed(1),`<b class="${bad(ld)}">${ld.toFixed(1)}</b>`,fm(dc),fm(st),`<b class="${bad(cd)}">${fm(cd)}</b>`,r.dip,(r.ok?'<span class="bd">OK</span>':`<button onclick="okR('${r.id}')">Approve</button>`)+` <button onclick="dipR('${r.id}')">Set tank = dip</button>`]}))}<p class="k">Differences are per attendant per date, so two shifts on one day are compared together. Remarks are in the backup file.</p></div>`}
+function okR(id){S.recs.find(r=>r.id==id).ok=1;commit('approve '+id);go('recs')}
+function dipR(id){const r=S.recs.find(x=>x.id==id);S.petrol.level=Math.min(TANK,r.dip);commit('tank set to dip '+r.dip);go('recs')}
+function vStock(){const p=S.petrol;return `<div class="card"><h3>Petrol</h3><div class="grid"><div><label>Selling price per litre</label><input id="pp" type="number" step="0.01" value="${p.price}"></div><div><label>Buying cost per litre</label><input id="pc" type="number" step="0.01" value="${p.cost}"></div><div><label>Low alert (L)</label><input id="pl" type="number" value="${p.low}"></div><div><label>Number of pumps</label><input id="pn" type="number" min="1" value="${S.pumps}"></div></div><button class="p" style="margin-top:10px" onclick="setP()">Save petrol settings</button>
+<p class="k">Price history: ${S.pp.slice(-5).reverse().map(x=>`${x.d}: ${x.price}`).join(' | ')||'none'}</p>
+<h4>Receive delivery (tank ${TANK} L, now ${p.level.toFixed(0)} L)</h4><div class="grid"><div><label>Litres to add</label><input id="dl" type="number" min="0" step="any"><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${[50,100,160,200,500].map(n=>`<button onclick="document.getElementById('dl').value=${n}">${n}</button>`).join('')}</div></div><div><label>Cost per litre (optional)</label><input id="dc" type="number" step="0.01"></div><div><label>Delivery note no.</label><input id="dn"></div></div><button style="margin-top:10px" onclick="deliver()">Add delivery</button><h4>Set tank level (opening stock or correction)</h4><div class="grid"><div><label>Litres now in tank (0 to ${TANK})</label><input id="sl" type="number" min="0" max="${TANK}" step="0.01"></div></div><button style="margin-top:10px" onclick="setL()">Set level</button></div>
+<div class="card"><h3>Lubricants (change prices any time)</h3>${tbl(['Product','Min','Max','Selling','Cost','Stock','Reorder'],S.oils.map(o=>[`${esc(o.b)} ${o.sz}L ${esc(o.n)}`,...['min','max','price','cost','qty','re'].map(f=>`<input type="number" value="${o[f]}" onchange="oil('${o.id}','${f}',this.value)">`)]))}</div>`}
+function setP(){const p=S.petrol,np=+val('pp'),nc=+val('pc');if(!(np>0)||!(nc>=0))return toast('Check the prices');if(np!=p.price)S.pp.push({d:today(),price:np,by:me.u});p.price=np;p.cost=nc;p.low=+val('pl')||0;S.pumps=Math.max(1,+val('pn')||1);commit('petrol price '+np);toast('Saved');go('stock')}
+function deliver(){const l=+val('dl'),p=S.petrol,c=+val('dc')||p.cost;if(!(l>0))return toast('Enter litres');if(p.level+l>TANK)return toast('Exceeds tank capacity. Max '+(TANK-p.level).toFixed(0)+' L');p.cost=(p.level*p.cost+l*c)/(p.level+l);p.level+=l;commit(`delivery ${l}L @${c} note ${val('dn')}`);toast('Delivery added');go('stock')}
+function setL(){const l=+val('sl');if(val('sl')===''||l<0||l>TANK)return toast('Enter 0 to '+TANK+' litres');S.petrol.level=l;commit('tank level set '+l);toast('Tank level set');go('stock')}
+function resetAll(){if(val('rz')!='RESET')return toast('Type RESET to confirm');S.petrol.level=0;S.petrol.price=0;S.petrol.cost=0;S.pp=[];S.sales=[];S.recs=[];S.exp=[];S.log=[];S.oils.forEach(o=>o.qty=0);commit('fresh start');toast('All data reset to zero');go('users')}
+function oil(id,f,x){const o=S.oils.find(a=>a.id==id);x=+x;if(!(x>=0))return;o[f]=f=='qty'||f=='re'?Math.floor(x):x;if(f=='min'||f=='max'||f=='price'){if(o.price<o.min)o.min=o.price;if(o.price>o.max)o.max=o.price;if(o.min>o.max)o.max=o.min}commit(`oil ${id} ${f}=${x}`);go('stock')}
+function vExp(){return `<div class="card"><h3>Add expense</h3><div class="grid"><div><label>Category</label><select id="ec">${['Salaries','Rent','Electricity','Licences','Transport','Repairs','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div><div><label>Amount</label><input id="ea" type="number" min="0"></div><div><label>Date</label><input id="ed" type="date" value="${today()}"></div></div><button class="p" style="margin-top:10px" onclick="addE()">Add</button></div><div class="card">${tbl(['Date','Category','Amount'],S.exp.slice().reverse().slice(0,50).map(e=>[e.d,e.c,fm(e.amt)]))}</div>`}
+function addE(){const a=+val('ea');if(!(a>0))return toast('Enter an amount');S.exp.push({d:val('ed'),c:val('ec'),amt:a});commit('expense '+a);go('exp')}
+function vProfit(){const d=new Date(),ds=[...Array(7)].map((_,i)=>new Date(d-i*864e5).toISOString().slice(0,10)),row=(l,p)=>{const x=pnl(p);return[l,fm(x.rev),fm(x.gp),fm(x.ex),`<b class="${x.net<0?'red':'okc'}">${fm(x.net)}</b>`]},h=['Period','Sales','Gross profit','Expenses','Net profit'];
+ return `<div class="card"><h3>Profit and loss</h3>${tbl(h,[row('This month',today().slice(0,7))].concat(ds.map(x=>row(x,x))))}<p class="k">Gross profit = sales minus cost of fuel and oil sold. Net profit = gross profit minus expenses entered by date. Accuracy depends on real cost prices.</p></div>`}
+function vUsers(){return `<div class="card"><h3>Attendants and admin</h3>${tbl(['Name','Username','Role','Status','New password',''],S.users.map(u=>[esc(u.name),u.u,u.role,u.active?'Active':'Off',`<input id="rp${u.u}" type="text" style="width:120px">`,`<button onclick="rpw('${u.u}')">Reset</button> ${u.u!='admin'?`<button onclick="tg('${u.u}')">${u.active?'Deactivate':'Activate'}</button>`:''}`]))}
+<h4>Add attendant</h4><div class="grid"><div><label>Name</label><input id="an"></div><div><label>Username</label><input id="au"></div><div><label>Password</label><input id="ap"></div></div><button class="p" style="margin-top:10px" onclick="addU()">Add</button></div>
+<div class="card"><h3>Station</h3><div class="grid"><div><label>Name</label><input id="sn" value="${esc(S.station)}"></div><div><label>Address</label><input id="sa" value="${esc(S.addr)}"></div></div><button style="margin-top:10px" onclick="S.station=val('sn');S.addr=val('sa');commit('station');go('users')">Save</button> <button onclick="bk()">Export backup (JSON)</button></div><div class="card"><h3>Fresh start</h3><p class="k">Sets tank, petrol price, petrol cost and all oil stock to 0 and deletes all sales, records, expenses and the audit log. Users and the oil catalogue stay. Export a backup first. This cannot be undone.</p><input id="rz" placeholder="Type RESET to confirm"><button class="p" style="margin-top:10px" onclick="resetAll()">Reset all data to zero</button></div>
+<div class="card"><h3>Audit log</h3>${tbl(['Time','User','Action'],S.log.slice(0,40).map(l=>[hm(l.t),l.u,esc(l.a)]))}</div>`}
+async function addU(){const u=val('au').trim().toLowerCase(),p=val('ap');if(!u||p.length<8||S.users.some(x=>x.u==u))return toast('Unique username and 8+ character password');S.users.push({u,name:val('an')||u,role:'attendant',h:await sha(p),active:1,must:1});commit('add user '+u);go('users')}
+async function rpw(u){const p=val('rp'+u);if(p.length<8)return toast('Min 8 characters');const x=S.users.find(a=>a.u==u);x.h=await sha(p);x.must=1;commit('reset '+u);toast('Password reset');go('users')}
+function tg(u){const x=S.users.find(a=>a.u==u);x.active=x.active?0:1;commit('toggle '+u);go('users')}
+async function bk(){const d=JSON.stringify(S),n='fuel-backup-'+today()+'.json';try{const dl=await claude.use('downloads');if(dl)return dl.save({filename:n,data:d})}catch(e){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d]));a.download=n;a.click()}
+/* ===== BOOT ===== */
+(async()=>{try{S=await load();if(!S){S=await seed();save()}}catch(e){$('#app').innerHTML='<div class="login card">Could not load data. Sign in to claude.ai and reload.</div>';return}
+ loginV()})();
+</script></body></html>
